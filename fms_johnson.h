@@ -5,66 +5,89 @@
 namespace fms {
 
 	struct Variate {
-		double pdf(double x) const
+		virtual ~Variate() = default;
+		// Cumulative share distribution E[exp(X - kappa(s)) 1(X <= x)].
+		double cdf(double x, double s = 0) const
 		{
-			return _pdf(x);
+			return _cdf(x, s);
 		}
-		double cdf(double x) const
+		// Share probability density d/dx cdf(x, s).
+		double pdf(double x, double s = 0) const
 		{
-			return _cdf(x);
+			return _pdf(x, s);
+		}
+		// Cumulant generating function log E[exp(s X)].
+		double cgf(double s)
+		{
+			return _cgf(s);
+		}
+		// Moment generating function E[exp(s X)].
+		double mgf(double s)
+		{
+			return _mgf(s);
 		}
 	private:
-		virtual double _pdf(double) const = 0;
-		virtual double _cdf(double) const = 0;	
+		virtual double _pdf(double x, double s) const = 0;
+		virtual double _cdf(double x, double s) const = 0;
+		virtual double _cgf(double s) const = 0;
+		virtual double _mgf(double s) const = 0;
 	};
 
-	class Normal : public Variate {
+	struct Normal : public Variate {
 		double mu, sigma;
-	public:
+
 		Normal(double mu = 0, double sigma = 1)
-			: mu(mu), sigma(sigma) 
-		{ 
+			: mu(mu), sigma(sigma)
+		{
 			if (sigma <= 0) {
 				throw std::invalid_argument("sigma must be positive");
 			}
 		}
-		double _pdf(double x) const override
+		double _pdf(double x, double s) const override
 		{
-			double z = (x - mu) / sigma;
+			double z = (x - s - mu) / sigma;
 
-			return std::exp(-z*z/2) * std::numbers::inv_sqrtpi / std::numbers::sqrt2;;
+			return std::exp(-z * z / 2) * std::numbers::inv_sqrtpi / (sigma * std::numbers::sqrt2);
 		}
-		double _cdf(double x) const override
+		double _cdf(double x, double s) const override
 		{
-			double z = (x - mu) / sigma;
+			double z = (x - s - mu) / sigma;
 
 			return 0.5 * (1 + std::erf(z / std::numbers::sqrt2));
+		}
+		double _cgf(double s) const override
+		{
+			return mu * s + 0.5 * sigma * sigma * s * s;
+		}
+		double _mgf(double s) const override
+		{
+			return std::exp(_cgf(s));
 		}
 	};
 
 	// X is Johnson S_U if
-	// Z = gamma + delta * asinh((X - xi) / lambda) is normal
+	// N = gamma + delta * asinh((X - xi) / lambda) is normal
 	class Johnson : public Variate {
 #ifdef _DEBUG
 	public:
 #endif
-
 		double gamma, delta, lambda, xi;
+		Normal N;
 
-		// To std normal.
-		double Z(double x) const
+		// To normal.
+		double n(double x) const
 		{
 			return gamma + delta * std::asinh((x - xi) / lambda);
 		}
 		// dZ/dX
-		double dZdX(double x) const
+		double dn_dx(double x) const
 		{
 			double y = (x - xi) / lambda;
 
 			return delta / (lambda * std::sqrt(1 + y * y));
 		}
-		// From std normal
-		double X(double z) const
+		// From normal
+		double x(double z) const
 		{
 			return xi + lambda * std::sinh((z - gamma) / delta);
 		}
@@ -102,8 +125,8 @@ namespace fms {
 			return mn;
 		}
 	public:
-		Johnson(double gamma, double delta, double lambda, double xi)
-			: gamma(gamma), delta(delta), lambda(lambda), xi(xi) 
+		Johnson(double gamma, double delta, double lambda, double xi, double mu = 0, double sigma = 1)
+			: gamma(gamma), delta(delta), lambda(lambda), xi(xi), N(mu, sigma)
 		{
 			if (delta <= 0) {
 				throw std::invalid_argument("delta must be positive");
@@ -112,19 +135,124 @@ namespace fms {
 				throw std::invalid_argument("lambda must be positive");
 			}
 		}
-		// Probability density function.
-		double _pdf(double x) const override
+		// E[X]
+		double mean() const
 		{
-			return Normal(0,1).pdf(Z(x)) * dZdX(x);
+			return xi + lambda * std::exp(N.sigma * N.sigma / (2 * delta * delta)) * std::sinh((N.mu - gamma) / delta);
+		}
+		// set E[X] to f
+		double mean(double f)
+		{
+			xi = f - mean();
+		}
+		// Probability density function.
+		double _pdf(double x, double s = 0) const override
+		{
+			double Esx = s == 0 ? 1 : std::exp(s * x) / _mgf(s);
+
+			return Esx * N.pdf(n(x)) * dn_dx(x);
 		}
 		// Cumulative distribution function.
-		double _cdf(double x) const override
+		double _cdf(double x, double s = 0) const override
 		{
-			return Normal(0, 1).cdf(Z(x));
+			return N.cdf(n(x));
 		}
+		double _cgf(double s) const override
+		{
+			return std::log(_mgf(s));
+		}
+		double _mgf(double s) const override
+		{
+			double mgf = 1; // first term
+
+			double sn = 1; // s^n/n!
+			int dup = 1; // protect against 0 moments
+			for (unsigned n = 1; n < 100; ++n) {
+				sn *= s / n;
+				double incr = moment(n) * sn;
+				mgf += incr;
+				if (abs(incr) < 1e-8) {
+					if (dup == 0) {
+						break;
+					}
+					else {
+						--dup;
+					}
+				}
+			}
+
+			return mgf;
+		}
+
 		double moment(unsigned k) const
 		{
 			return _moment(k);
 		}
+
+		// Share cumulative distribution E[X/E[X] 1(X <= x)].
+		double cdf_(double x) const
+		{
+			double z = (N.mu - gamma) / delta;
+			double s = N.sigma / delta;
+			double nx = n(x);
+			double dN = exp(z) * N.cdf(nx - N.sigma * s) - exp(-z) * N.cdf(nx + N.sigma * s);
+
+			return (xi * N.cdf(nx) + 0.5 * lambda * exp(s * s / 2) * dN) / mean();
+		}
+
 	};
+
+	double moneyness(double f, double s, double k)
+	{
+		if (s <= 0) {
+			return std::numeric_limits<double>::quiet_NaN();
+		}
+
+		return (std::log(k / f) + s * s / 2) / s;
+	}
+
+	double put_value(double f, double s, double k)
+	{
+		static Normal N;
+		double z = moneyness(f, s, k);
+
+		return k * N.cdf(z) - f * N.cdf(z - s);
+	}
+	double put_delta(double f, double s, double k)
+	{
+		static Normal N;
+		double z = moneyness(f, s, k);
+
+		return -N.cdf(z, s);
+	}
+	double put_vega(double f, double s, double k)
+	{
+		static Normal N;
+		double z = moneyness(f, s, k);
+
+		return f * N.pdf(z, s);
+	}
+
+	double put_implied(double f, double p, double k, double s = 0.1, double eps = 1e-8, double iter = 100)
+	{
+		while (iter--) {
+			double s_ = s - (put_value(f, s, k) - p) / put_vega(f, s, k);
+			if (s_ < 0) {
+				s_ = s/2;
+			}
+			if (std::fabs(s_ - s) < eps) {
+				break;
+			}
+			s = s_;
+		}
+
+		return s;
+	}
+
+	double put_value(const Johnson& j, double k)
+	{
+		double f = j.mean();
+
+		return k * j._cdf(k) - f * j.cdf_(k);
+	}
 }

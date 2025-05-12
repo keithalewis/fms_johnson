@@ -3,6 +3,20 @@
 
 using namespace xll;
 
+AddIn xai_calculate_now(
+	Macro("xll_calculate_now", "CALCULATE.NOW")
+);
+int WINAPI xll_calculate_now()
+{
+#pragma XLLEXPORT
+	static OPER eq("=");
+
+	return Excel(xlcFormulaReplace, eq, eq) == true;
+}
+Auto<Open> xao_calculate_now([]() {
+	return Excel(xlcOnSheet, OPER(), OPER("CALCULATE.NOW"), true) == true;
+});
+
 AddIn xai_variate_normal(
 	Function(XLL_HANDLEX, "xll_variate_normal", "\\VARIATE.NORMAL")
 	.Arguments({
@@ -65,18 +79,19 @@ AddIn xai_variate_cdf(
 	.Arguments({
 		Arg(XLL_HANDLEX, "h", "is a handle to a variate."),
 		Arg(XLL_DOUBLE, "x", "is the value at which to evaluate the CDF."),
+		Arg(XLL_DOUBLE, "s", "is the vol."),
 		})
 		.Category("XLL")
 	.FunctionHelp("Returns the cumulative distribution function .")
 );
-double WINAPI xll_variate_cdf(HANDLEX h, double x)
+double WINAPI xll_variate_cdf(HANDLEX h, double x, double s)
 {
 #pragma XLLEXPORT
 	try {
 		handle<fms::Variate> h_(h);
 		ensure(h_);
 
-		return h_->cdf(x);
+		return h_->cdf(x, s);
 	}
 	catch (const std::exception& ex) {
 		XLL_ERROR(ex.what());
@@ -90,18 +105,69 @@ AddIn xai_variate_pdf(
 	.Arguments({
 		Arg(XLL_HANDLEX, "h", "is a handle to a variate."),
 		Arg(XLL_DOUBLE, "x", "is the value at which to evaluate the PDF."),
+		Arg(XLL_DOUBLE, "s", "is the vol."),
 		})
 		.Category("XLL")
-	.FunctionHelp("Returns the probability density function of the variatel distribution.")
+	.FunctionHelp("Returns the probability density function of the variate distribution.")
 );
-double WINAPI xll_variate_pdf(HANDLEX h, double x)
+double WINAPI xll_variate_pdf(HANDLEX h, double x, double s)
 {
 #pragma XLLEXPORT
 	try {
 		handle<fms::Variate> h_(h);
 		ensure(h_);
 
-		return h_->pdf(x);
+		return h_->pdf(x, s);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
+
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_variate_cgf(
+	Function(XLL_DOUBLE, "xll_variate_cgf", "VARIATE.CGF")
+	.Arguments({
+		Arg(XLL_HANDLEX, "h", "is a handle to a variate."),
+		Arg(XLL_DOUBLE, "s", "is the value at which to evaluate the cgf."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the cumulant generating function of the variate distribution.")
+);
+double WINAPI xll_variate_cgf(HANDLEX h, double s)
+{
+#pragma XLLEXPORT
+	try {
+		handle<fms::Variate> h_(h);
+		ensure(h_);
+
+		return h_->cgf(s);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
+
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_variate_mgf(
+	Function(XLL_DOUBLE, "xll_variate_mgf", "VARIATE.MGF")
+	.Arguments({
+		Arg(XLL_HANDLEX, "h", "is a handle to a variate."),
+		Arg(XLL_DOUBLE, "s", "is the value at which to evaluate the mgf."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the moment generating function of the variate distribution.")
+);
+double WINAPI xll_variate_mgf(HANDLEX h, double s)
+{
+#pragma XLLEXPORT
+	try {
+		handle<fms::Variate> h_(h);
+		ensure(h_);
+
+		return h_->mgf(s);
 	}
 	catch (const std::exception& ex) {
 		XLL_ERROR(ex.what());
@@ -114,12 +180,12 @@ AddIn xai_johnson_X(
 	Function(XLL_DOUBLE, "xll_johnson_X", "JOHNSON.X")
 	.Arguments({
 		Arg(XLL_HANDLEX, "h", "is a handle to a Johnson distribution."),
-		Arg(XLL_DOUBLE, "z", "is value of the underlying normal"),
+		Arg(XLL_DOUBLE, "n", "is value of the underlying normal"),
 		})
 		.Category("XLL")
-	.FunctionHelp("Returns the Johnson distribution at z.")
+	.FunctionHelp("Returns the Johnson distribution at n.")
 );
-double WINAPI xll_johnson_X(HANDLEX h, double z)
+double WINAPI xll_johnson_X(HANDLEX h, double n)
 {
 #pragma XLLEXPORT
 	try {
@@ -128,7 +194,7 @@ double WINAPI xll_johnson_X(HANDLEX h, double z)
 		const auto j = h_.as<fms::Johnson>();
 		ensure(j);
 
-		return j->X(z);
+		return j->x(n);
 	}
 	catch (const std::exception& ex) {
 		XLL_ERROR(ex.what());
@@ -189,5 +255,97 @@ double WINAPI xll_johnson_moment(HANDLEX h, unsigned n)
 		XLL_ERROR(ex.what());
 	}
 
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_normal_put_value(
+	Function(XLL_DOUBLE, "xll_normal_put_value", "NORMAL.PUT.VALUE")
+	.Arguments({
+		Arg(XLL_DOUBLE, "f", "is the forward price."),
+		Arg(XLL_DOUBLE, "s", "is the vol."),
+		Arg(XLL_DOUBLE, "k", "is the strike price."),
+		})
+	.Category("XLL")
+	.FunctionHelp("Returns the put value of a normal distribution.")
+);
+double WINAPI xll_normal_put_value(double f, double s, double k)
+{
+#pragma XLLEXPORT
+	try {
+		return fms::put_value(f, s, k);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_normal_put_delta(
+	Function(XLL_DOUBLE, "xll_normal_put_delta", "NORMAL.PUT.DELTA")
+	.Arguments({
+		Arg(XLL_DOUBLE, "f", "is the forward price."),
+		Arg(XLL_DOUBLE, "s", "is the vol."),
+		Arg(XLL_DOUBLE, "k", "is the strike price."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the put delta of a normal distribution.")
+);
+double WINAPI xll_normal_put_delta(double f, double s, double k)
+{
+#pragma XLLEXPORT
+	try {
+		return fms::put_delta(f, s, k);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_normal_put_implied(
+	Function(XLL_DOUBLE, "xll_normal_put_implied", "NORMAL.PUT.IMPLIED")
+	.Arguments({
+		Arg(XLL_DOUBLE, "f", "is the forward price."),
+		Arg(XLL_DOUBLE, "p", "is the put value."),
+		Arg(XLL_DOUBLE, "k", "is the strike price."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the put implied of a normal distribution.")
+);
+double WINAPI xll_normal_put_implied(double f, double p, double k)
+{
+#pragma XLLEXPORT
+	try {
+		return fms::put_implied(f, p, k);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_johnson_put_value(
+	Function(XLL_DOUBLE, "xll_johnson_put_value", "JOHNSON.PUT.VALUE")
+	.Arguments({
+		Arg(XLL_HANDLEX, "h", "is the handle to a Johnson distribution."),
+		Arg(XLL_DOUBLE, "k", "is the strike price."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the put value of a johnson distribution.")
+);
+double WINAPI xll_johnson_put_value(HANDLEX h, double k)
+{
+#pragma XLLEXPORT
+	try {
+		handle<fms::Variate> h_(h);
+		ensure(h_);
+		const auto j = h_.as<fms::Johnson>();
+		ensure(j);
+
+		return fms::put_value(*j, k);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
 	return std::numeric_limits<double>::quiet_NaN();
 }
