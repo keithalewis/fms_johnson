@@ -79,7 +79,7 @@ namespace fms {
 		{
 			return gamma + delta * std::asinh((x - xi) / lambda);
 		}
-		// dZ/dX
+		// dN/dX
 		double dn_dx(double x) const
 		{
 			double y = (x - xi) / lambda;
@@ -87,9 +87,9 @@ namespace fms {
 			return delta / (lambda * std::sqrt(1 + y * y));
 		}
 		// From normal
-		double x(double z) const
+		double x(double n) const
 		{
-			return xi + lambda * std::sinh((z - gamma) / delta);
+			return xi + lambda * std::sinh((n - gamma) / delta);
 		}
 
 		// E[(sinh^k((Z - gamma)/delta)] = 2^{-k} sum_{j=0}^{k} (-1)^j C_kj exp((k - 2j)^2/delta^2) - (k - 2j)gamma/delta)
@@ -141,16 +141,14 @@ namespace fms {
 			return xi + lambda * std::exp(N.sigma * N.sigma / (2 * delta * delta)) * std::sinh((N.mu - gamma) / delta);
 		}
 		// set E[X] to f
-		double mean(double f)
+		void mean(double f)
 		{
-			xi = f - mean();
+			xi += f - mean();
 		}
 		// Probability density function.
 		double _pdf(double x, double s = 0) const override
 		{
-			double Esx = s == 0 ? 1 : std::exp(s * x) / _mgf(s);
-
-			return Esx * N.pdf(n(x)) * dn_dx(x);
+			return N.pdf(n(x)) * dn_dx(x);
 		}
 		// Cumulative distribution function.
 		double _cdf(double x, double s = 0) const override
@@ -194,13 +192,19 @@ namespace fms {
 		{
 			double z = (N.mu - gamma) / delta;
 			double s = N.sigma / delta;
-			double nx = n(x);
-			double dN = exp(z) * N.cdf(nx - N.sigma * s) - exp(-z) * N.cdf(nx + N.sigma * s);
+			double dN = std::exp(z) * N.cdf(n(x) - s*s * delta) - std::exp(-z) * N.cdf(n(x) + s*s * delta);
 
-			return (xi * N.cdf(nx) + 0.5 * lambda * exp(s * s / 2) * dN) / mean();
+			return xi * N.cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN / mean();
 		}
 
 	};
+
+	double put_value(const Johnson& j, double k)
+	{
+		double f = j.mean();
+
+		return k * j.cdf(k) - f * j.cdf_(k);
+	}
 
 	double moneyness(double f, double s, double k)
 	{
@@ -249,10 +253,4 @@ namespace fms {
 		return s;
 	}
 
-	double put_value(const Johnson& j, double k)
-	{
-		double f = j.mean();
-
-		return k * j._cdf(k) - f * j.cdf_(k);
-	}
 }

@@ -49,22 +49,27 @@ HANDLEX WINAPI xll_variate_normal(double mu, double sigma)
 AddIn xai_variate_johnson(
 	Function(XLL_HANDLEX, "xll_variate_johnson", "\\VARIATE.JOHNSON")
 	.Arguments({
-		Arg(XLL_DOUBLE, "gamma", "is the gamma parameter."),
-		Arg(XLL_DOUBLE, "delta", "is the delta parameter."),
-		Arg(XLL_DOUBLE, "lambda", "is the lambda parameter."),
-		Arg(XLL_DOUBLE, "xi", "is the xi parameter."),
+		Arg(XLL_DOUBLE, "gamma", "is the gamma parameter.", 0),
+		Arg(XLL_DOUBLE, "delta", "is the delta parameter.", 1),
+		Arg(XLL_DOUBLE, "lambda", "is the lambda parameter.", 1),
+		Arg(XLL_DOUBLE, "xi", "is the xi parameter.", 0),
+		Arg(XLL_DOUBLE, "mu", "is the mean of the underlying normal.", 0),
+		Arg(XLL_DOUBLE, "sigma", "is standard deviation of the underlying normal.", 1),
 		})
 		.Uncalced()
 	.Category("XLL")
 	.FunctionHelp("Returns a handle to a Johnson distribution.")
 );
-HANDLEX WINAPI xll_variate_johnson(double gamma, double delta, double lambda, double xi)
+HANDLEX WINAPI xll_variate_johnson(double gamma, double delta, double lambda, double xi, double mu, double sigma)
 {
 #pragma XLLEXPORT
 	HANDLEX h = INVALID_HANDLEX;
 
 	try {
-		handle<fms::Variate> h_(new fms::Johnson(gamma, delta, lambda, xi));
+		if (sigma == 0) {
+			sigma = 1;
+		}
+		handle<fms::Variate> h_(new fms::Johnson(gamma, delta, lambda, xi, mu, sigma));
 		h = h_.get();
 	}
 	catch (const std::exception& ex) {

@@ -74,7 +74,7 @@ int normal_test()
 
 int dist_test()
 {
-	fms::Johnson j(0, 1, 1, 0);
+	fms::Johnson j(1, 2, 3, 4);
 	{
 		double data[][3] = {
 			// x, h, O
@@ -139,6 +139,29 @@ int Esinh_k_test()
 	}
 	return 0;
 }
+int moment_test()
+{
+	fms::Johnson j(1, 2, 3, 4);
+	{
+		double m = j.moment(1);
+		{
+			double m1 = j.mean();
+			assert(fabs(m - m1) <= 2 * std::numeric_limits<double>::epsilon());
+			j.mean(5);
+			m1 = j.mean();
+			assert(m1 == 5);
+		}
+		{
+			std::normal_distribution<double> n1(j.N.mu, j.N.sigma);
+			const auto f = [&n1, &j]() { double x = j.x(n1(e));  return x * x; };
+			auto [m, v] = monte(f, 10000);
+			double m2 = j.moment(2);
+			double z = (m2 - m) / v;
+			assert(fabs(z) < 0.1);
+		}
+	}
+	return 0;
+}
 
 int main()
 {
@@ -146,6 +169,7 @@ int main()
 	assert(!normal_test());
 	assert(!dist_test());
 	assert(!Esinh_k_test());
+	assert(!moment_test());
 
 	return 0;
 }
