@@ -36,15 +36,11 @@ std::pair<double, double> monte(const std::function<double(void)>& f, int N)
 
 	return { m1, sqrt(m2 - m1 * m1) };
 }
-auto monte_uniform(int n)
-{
-	const auto f = []() { return u(e); };
-	return monte(f, n);
-}
+
 int monte_uniform_test(int n)
 {
 	{
-		auto [m, s] = monte_uniform(n);
+		auto [m, s] = monte([]() { return u(e); }, n);
 		assert(std::fabs(m - 0.5) <= 1. / std::sqrt(n));
 		assert(std::fabs(s - 1. / sqrt(12)) <= 1. / std::sqrt(n));
 	}
@@ -96,42 +92,42 @@ int dist_test()
 
 int Esinh_k_test()
 {
-	double data[][4] = {
-		// xi, lambda, gamma, delta
-		{0, 1, 1, 0},
-		//{1, 1, 1, 0},
-		//{0, 1, 1, 1},
-		//{1, 1, 1, 1},
+	double data[][6] = {
+		// xi, lambda, gamma, delta, mu, sigma
+		{0, 1, 1, 0, 0, 1},
+		{1, 1, 1, 0, 0, 2},
+		{0, 1, 1, 1, 1, 1},
+		{1, 1, 1, 1, -1, 3},
 	};
-	for (auto [xi, lambda, gamma, delta] : data) {
-		fms::Johnson j(xi, lambda, gamma, delta);
-		int N = 1000000;
-		double eps = 2. / sqrt(N);
-		static std::normal_distribution<double> n(-j.gamma / j.delta, 1 / j.delta);
+	int N = 1000000;
+	double eps = 4. / sqrt(N);
+	for (auto [xi, lambda, gamma, delta, mu, sigma] : data) {
+		fms::Johnson j(xi, lambda, gamma, delta, mu, sigma);
+		std::normal_distribution<double> n(-j.gamma / j.delta, 1 / j.delta);
 		{
 			double j1 = j.Esinh_k(1);
-			const auto f = []() { return sinh(n(e)); };
+			const auto f = [&n]() { return sinh(n(e)); };
 			auto [j1_, s] = monte(f, N);
 			double err = (j1 - j1_) / s;
 			assert(fabs(err) < eps);
 		}
 		{
 			double j2 = j.Esinh_k(2);
-			const auto f = []() { return pow(sinh(n(e)), 2); };
+			const auto f = [&n]() { return pow(sinh(n(e)), 2); };
 			auto [j2_, s] = monte(f, N);
 			double err = (j2 - j2_) / s;
 			assert(fabs(err) < eps);
 		}
 		{
 			double j3 = j.Esinh_k(3);
-			const auto f = []() { return pow(sinh(n(e)), 3); };
+			const auto f = [&n]() { return pow(sinh(n(e)), 3); };
 			auto [j3_, s] = monte(f, N);
 			double err = (j3 - j3_) / s;
 			assert(fabs(err) < eps);
 		}
 		{
 			double j4 = j.Esinh_k(4);
-			const auto f = []() { return pow(sinh(n(e)), 4); };
+			const auto f = [&n]() { return pow(sinh(n(e)), 4); };
 			auto [j4_, s] = monte(f, N);
 			double err = (j4 - j4_) / s;
 			assert(fabs(err) < eps);
@@ -152,12 +148,41 @@ int moment_test()
 			assert(m1 == 5);
 		}
 		{
+			// X = j.x(N)
 			std::normal_distribution<double> n1(j.N.mu, j.N.sigma);
 			const auto f = [&n1, &j]() { double x = j.x(n1(e));  return x * x; };
 			auto [m, v] = monte(f, 10000);
 			double m2 = j.moment(2);
 			double z = (m2 - m) / v;
 			assert(fabs(z) < 0.1);
+		}
+	}
+	return 0;
+}
+
+// Test for share cumulative distribution
+int test_share()
+{
+	int M = 1000000;
+	{
+		const double data[][6] = {
+			// xi, lambda, gamma, delta, mu, sigma
+			{0, 1, 1, 0, 0, 1},
+			{1, 1, 1, 0, 0, 2},
+			{0, 1, 1, 1, 1, 1},
+			{1, 1, 1, 1, -1, 3},
+		};
+		const double xs[] = { -1, 0, 1 };
+		for (const auto [xi, lambda, gamma, delta, mu, sigma] : data) {
+			for (double x : xs) {
+				fms::Johnson j(xi, lambda, gamma, delta, mu, sigma);
+				std::normal_distribution<double> N(j.N.mu, j.N.sigma);
+				auto X = [&]() { return j.x(N(e)); };
+				double P = j.cdf_(x);
+				auto [m, s] = monte([&X, x]() { double x_ = X(); return x_ * 1. * (x_ <= x); }, M);
+				double z = (P - m) / s;
+				assert(fabs(z) < 0.003);
+			}
 		}
 	}
 	return 0;
@@ -170,6 +195,7 @@ int main()
 	assert(!dist_test());
 	assert(!Esinh_k_test());
 	assert(!moment_test());
+	assert(!test_share());
 
 	return 0;
 }

@@ -187,25 +187,23 @@ namespace fms {
 			return _moment(k);
 		}
 
-		// Share cumulative distribution E[X/E[X] 1(X <= x)].
+		// Share cumulative distribution E[X 1(X <= x)].
 		double cdf_(double x) const
 		{
 			double z = (N.mu - gamma) / delta;
 			double s = N.sigma / delta;
 			double dN = std::exp(z) * N.cdf(n(x) - s*s * delta) - std::exp(-z) * N.cdf(n(x) + s*s * delta);
 
-			return xi * N.cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN / mean();
+			return xi * N.cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN ;
 		}
 
 	};
 
 	double put_value(const Johnson& j, double k)
 	{
-		double f = j.mean();
-
-		return k * j.cdf(k) - f * j.cdf_(k);
+		return k * j.cdf(k) - j.cdf_(k);
 	}
-
+	// B-S/M
 	double moneyness(double f, double s, double k)
 	{
 		if (s <= 0) {
@@ -237,7 +235,7 @@ namespace fms {
 		return f * N.pdf(z, s);
 	}
 
-	double put_implied(double f, double p, double k, double s = 0.1, double eps = 1e-8, double iter = 100)
+	double put_implied(double f, double p, double k, double s = 0.1, double eps = 1e-8, size_t iter = 100)
 	{
 		while (iter--) {
 			double s_ = s - (put_value(f, s, k) - p) / put_vega(f, s, k);
