@@ -191,9 +191,11 @@ namespace fms {
 		{
 			double z = - gamma / delta;
 			double s = 1 / delta;
-			double dN = std::exp(z) * Normal().cdf(n(x) - s * s * delta) - std::exp(-z) * Normal().cdf(n(x) + s * s * delta);
+			double Nx = Normal().cdf(n(x));
+			double N_ = std::exp(z) * Normal().cdf(n(x) - s * s * delta);
+			double _N = std::exp(-z) * Normal().cdf(n(x) + s * s * delta);
 
-			return xi * Normal().cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN;
+			return xi * Nx + 0.5 * lambda * std::exp(s * s / 2) * (N_ - _N);
 		}
 
 	};
