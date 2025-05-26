@@ -71,24 +71,24 @@ namespace fms {
 #ifdef _DEBUG
 	public:
 #endif
-		double gamma, delta, lambda, xi;
+		double xi, lambda, gamma, delta;
 
-		// To normal.
-		double n(double x) const
+		// To std normal.
+		double z(double x) const
 		{
 			return gamma + delta * std::asinh((x - xi) / lambda);
 		}
-		// dN/dX
-		double dn_dx(double x) const
+		// dZ/dX
+		double dz_dx(double x) const
 		{
 			double y = (x - xi) / lambda;
 
 			return delta / (lambda * std::sqrt(1 + y * y));
 		}
 		// From normal
-		double x(double n) const
+		double x(double z) const
 		{
-			return xi + lambda * std::sinh((n - gamma) / delta);
+			return xi + lambda * std::sinh((z - gamma) / delta);
 		}
 
 		// E[(sinh^k((Z - gamma)/delta)] = 2^{-k} sum_{j=0}^{k} (-1)^j C_kj exp((k - 2j)^2/delta^2) - (k - 2j)gamma/delta)
@@ -124,14 +124,15 @@ namespace fms {
 			return mn;
 		}
 	public:
-		Johnson(double gamma, double delta, double lambda, double xi)
-			: gamma(gamma), delta(delta), lambda(lambda), xi(xi)
+		// xi is location, lambda scale, gamma is skew, delta is kurtosis
+		Johnson(double xi, double lambda, double gamma, double delta)
+			: xi(xi), lambda(lambda), gamma(gamma), delta(delta)
 		{
-			if (delta <= 0) {
-				throw std::invalid_argument("delta must be positive");
-			}
 			if (lambda <= 0) {
 				throw std::invalid_argument("lambda must be positive");
+			}
+			if (delta <= 0) {
+				throw std::invalid_argument("delta must be positive");
 			}
 		}
 		// E[X]
@@ -147,12 +148,12 @@ namespace fms {
 		// Probability density function.
 		double _pdf(double x, double s = 0) const override
 		{
-			return Normal().pdf(n(x)) * dn_dx(x);
+			return Normal().pdf(z(x)) * dz_dx(x);
 		}
 		// Cumulative distribution function.
 		double _cdf(double x, double s = 0) const override
 		{
-			return Normal().cdf(n(x));
+			return Normal().cdf(z(x));
 		}
 		double _cgf(double s) const override
 		{
@@ -189,21 +190,23 @@ namespace fms {
 		// Share cumulative distribution E[X 1(X <= x)].
 		double cdf_(double x) const
 		{
-			double z = - gamma / delta;
+			double m = - gamma / delta;
 			double s = 1 / delta;
-			double Nx = Normal().cdf(n(x));
-			double N_ = std::exp(z) * Normal().cdf(n(x) - s * s * delta);
-			double _N = std::exp(-z) * Normal().cdf(n(x) + s * s * delta);
+			double Nx = Normal().cdf(z(x));
+			double N_ = std::exp(m) * Normal().cdf(z(x) - s * s * delta);
+			double _N = std::exp(-m) * Normal().cdf(z(x) + s * s * delta);
 
 			return xi * Nx + 0.5 * lambda * std::exp(s * s / 2) * (N_ - _N);
 		}
 
 	};
 
+	// E[(k - X)^+] = k * P(X <= k) - E[X 1(X <= k)]
 	double put_value(const Johnson& j, double k)
 	{
 		return k * j.cdf(k) - j.cdf_(k);
 	}
+
 	// B-S/M
 	double moneyness(double f, double s, double k)
 	{

@@ -49,22 +49,22 @@ HANDLEX WINAPI xll_variate_normal(double mu, double sigma)
 AddIn xai_variate_johnson(
 	Function(XLL_HANDLEX, "xll_variate_johnson", "\\VARIATE.JOHNSON")
 	.Arguments({
+		Arg(XLL_DOUBLE, "xi", "is the xi parameter.", 0),
+		Arg(XLL_DOUBLE, "lambda", "is the lambda parameter.", 1),
 		Arg(XLL_DOUBLE, "gamma", "is the gamma parameter.", 0),
 		Arg(XLL_DOUBLE, "delta", "is the delta parameter.", 1),
-		Arg(XLL_DOUBLE, "lambda", "is the lambda parameter.", 1),
-		Arg(XLL_DOUBLE, "xi", "is the xi parameter.", 0),
 		})
 		.Uncalced()
 	.Category("XLL")
 	.FunctionHelp("Returns a handle to a Johnson distribution.")
 );
-HANDLEX WINAPI xll_variate_johnson(double gamma, double delta, double lambda, double xi)
+HANDLEX WINAPI xll_variate_johnson(double xi, double lambda, double gamma, double delta)
 {
 #pragma XLLEXPORT
 	HANDLEX h = INVALID_HANDLEX;
 
 	try {
-		handle<fms::Variate> h_(new fms::Johnson(gamma, delta, lambda, xi));
+		handle<fms::Variate> h_(new fms::Johnson(xi, lambda, gamma, delta));
 		h = h_.get();
 	}
 	catch (const std::exception& ex) {
@@ -180,12 +180,12 @@ AddIn xai_johnson_X(
 	Function(XLL_DOUBLE, "xll_johnson_X", "JOHNSON.X")
 	.Arguments({
 		Arg(XLL_HANDLEX, "h", "is a handle to a Johnson distribution."),
-		Arg(XLL_DOUBLE, "n", "is value of the underlying normal"),
+		Arg(XLL_DOUBLE, "z", "is value of the underlying normal"),
 		})
 		.Category("XLL")
-	.FunctionHelp("Returns the Johnson distribution at n.")
+	.FunctionHelp("Returns the Johnson distribution at z.")
 );
-double WINAPI xll_johnson_X(HANDLEX h, double n)
+double WINAPI xll_johnson_X(HANDLEX h, double z)
 {
 #pragma XLLEXPORT
 	try {
@@ -194,7 +194,7 @@ double WINAPI xll_johnson_X(HANDLEX h, double n)
 		const auto j = h_.as<fms::Johnson>();
 		ensure(j);
 
-		return j->x(n);
+		return j->x(z);
 	}
 	catch (const std::exception& ex) {
 		XLL_ERROR(ex.what());
