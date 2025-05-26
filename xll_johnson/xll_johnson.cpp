@@ -53,23 +53,18 @@ AddIn xai_variate_johnson(
 		Arg(XLL_DOUBLE, "delta", "is the delta parameter.", 1),
 		Arg(XLL_DOUBLE, "lambda", "is the lambda parameter.", 1),
 		Arg(XLL_DOUBLE, "xi", "is the xi parameter.", 0),
-		Arg(XLL_DOUBLE, "mu", "is the mean of the underlying normal.", 0),
-		Arg(XLL_DOUBLE, "sigma", "is standard deviation of the underlying normal.", 1),
 		})
 		.Uncalced()
 	.Category("XLL")
 	.FunctionHelp("Returns a handle to a Johnson distribution.")
 );
-HANDLEX WINAPI xll_variate_johnson(double gamma, double delta, double lambda, double xi, double mu, double sigma)
+HANDLEX WINAPI xll_variate_johnson(double gamma, double delta, double lambda, double xi)
 {
 #pragma XLLEXPORT
 	HANDLEX h = INVALID_HANDLEX;
 
 	try {
-		if (sigma == 0) {
-			sigma = 1;
-		}
-		handle<fms::Variate> h_(new fms::Johnson(gamma, delta, lambda, xi, mu, sigma));
+		handle<fms::Variate> h_(new fms::Johnson(gamma, delta, lambda, xi));
 		h = h_.get();
 	}
 	catch (const std::exception& ex) {
@@ -260,6 +255,28 @@ double WINAPI xll_johnson_moment(HANDLEX h, unsigned n)
 		XLL_ERROR(ex.what());
 	}
 
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+AddIn xai_normal_moneyness(
+	Function(XLL_DOUBLE, "xll_normal_moneyness", "NORMAL.MONEYNESS")
+	.Arguments({
+		Arg(XLL_DOUBLE, "f", "is the forward price."),
+		Arg(XLL_DOUBLE, "s", "is the vol."),
+		Arg(XLL_DOUBLE, "k", "is the strike price."),
+		})
+		.Category("XLL")
+	.FunctionHelp("Returns the moneyness of a lognormal distribution.")
+);
+double WINAPI xll_normal_moneyness(double f, double s, double k)
+{
+#pragma XLLEXPORT
+	try {
+		return fms::moneyness(f, s, k);
+	}
+	catch (const std::exception& ex) {
+		XLL_ERROR(ex.what());
+	}
 	return std::numeric_limits<double>::quiet_NaN();
 }
 

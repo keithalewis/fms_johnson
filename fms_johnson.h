@@ -72,7 +72,6 @@ namespace fms {
 	public:
 #endif
 		double gamma, delta, lambda, xi;
-		Normal N;
 
 		// To normal.
 		double n(double x) const
@@ -125,8 +124,8 @@ namespace fms {
 			return mn;
 		}
 	public:
-		Johnson(double gamma, double delta, double lambda, double xi, double mu = 0, double sigma = 1)
-			: gamma(gamma), delta(delta), lambda(lambda), xi(xi), N(mu, sigma)
+		Johnson(double gamma, double delta, double lambda, double xi)
+			: gamma(gamma), delta(delta), lambda(lambda), xi(xi)
 		{
 			if (delta <= 0) {
 				throw std::invalid_argument("delta must be positive");
@@ -138,7 +137,7 @@ namespace fms {
 		// E[X]
 		double mean() const
 		{
-			return xi + lambda * std::exp(N.sigma * N.sigma / (2 * delta * delta)) * std::sinh((N.mu - gamma) / delta);
+			return xi + lambda * std::exp(1 / (2 * delta * delta)) * std::sinh(- gamma / delta);
 		}
 		// set E[X] to f
 		void mean(double f)
@@ -148,12 +147,12 @@ namespace fms {
 		// Probability density function.
 		double _pdf(double x, double s = 0) const override
 		{
-			return N.pdf(n(x)) * dn_dx(x);
+			return Normal().pdf(n(x)) * dn_dx(x);
 		}
 		// Cumulative distribution function.
 		double _cdf(double x, double s = 0) const override
 		{
-			return N.cdf(n(x));
+			return Normal().cdf(n(x));
 		}
 		double _cgf(double s) const override
 		{
@@ -190,11 +189,11 @@ namespace fms {
 		// Share cumulative distribution E[X 1(X <= x)].
 		double cdf_(double x) const
 		{
-			double z = (N.mu - gamma) / delta;
-			double s = N.sigma / delta;
-			double dN = std::exp(z) * N.cdf(n(x) - s*s * delta) - std::exp(-z) * N.cdf(n(x) + s*s * delta);
+			double z = - gamma / delta;
+			double s = 1 / delta;
+			double dN = std::exp(z) * Normal().cdf(n(x) - s * s * delta) - std::exp(-z) * Normal().cdf(n(x) + s * s * delta);
 
-			return xi * N.cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN ;
+			return xi * Normal().cdf(n(x)) + 0.5 * lambda * std::exp(s * s / 2) * dN;
 		}
 
 	};

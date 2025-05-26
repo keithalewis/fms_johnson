@@ -92,17 +92,17 @@ int dist_test()
 
 int Esinh_k_test()
 {
-	double data[][6] = {
-		// xi, lambda, gamma, delta, mu, sigma
-		{0, 1, 1, 0, 0, 1},
-		{1, 1, 1, 0, 0, 2},
-		{0, 1, 1, 1, 1, 1},
-		{1, 1, 1, 1, -1, 3},
+	double data[][4] = {
+		// xi, lambda, gamma, delta
+		{0, 1, 1, 0},
+		{1, 1, 1, 0},
+		{0, 1, 1, 1},
+		{1, 1, 1, 1},
 	};
 	int N = 1000000;
 	double eps = 4. / sqrt(N);
-	for (auto [xi, lambda, gamma, delta, mu, sigma] : data) {
-		fms::Johnson j(xi, lambda, gamma, delta, mu, sigma);
+	for (auto [xi, lambda, gamma, delta] : data) {
+		fms::Johnson j(xi, lambda, gamma, delta);
 		std::normal_distribution<double> n(-j.gamma / j.delta, 1 / j.delta);
 		{
 			double j1 = j.Esinh_k(1);
@@ -149,7 +149,7 @@ int moment_test()
 		}
 		{
 			// X = j.x(N)
-			std::normal_distribution<double> n1(j.N.mu, j.N.sigma);
+			std::normal_distribution<double> n1;
 			const auto f = [&n1, &j]() { double x = j.x(n1(e));  return x * x; };
 			auto [m, v] = monte(f, 10000);
 			double m2 = j.moment(2);
@@ -165,18 +165,18 @@ int test_share()
 {
 	int M = 1000000;
 	{
-		const double data[][6] = {
+		const double data[][4] = {
 			// xi, lambda, gamma, delta, mu, sigma
-			{0, 1, 1, 0, 0, 1},
-			{1, 1, 1, 0, 0, 2},
-			{0, 1, 1, 1, 1, 1},
-			{1, 1, 1, 1, -1, 3},
+			{0, 1, 1, 0},
+			{1, 1, 1, 0},
+			{0, 1, 1, 1},
+			{1, 1, 1, 1},
 		};
 		const double xs[] = { -1, 0, 1 };
-		for (const auto [xi, lambda, gamma, delta, mu, sigma] : data) {
+		for (const auto [xi, lambda, gamma, delta] : data) {
 			for (double x : xs) {
-				fms::Johnson j(xi, lambda, gamma, delta, mu, sigma);
-				std::normal_distribution<double> N(j.N.mu, j.N.sigma);
+				fms::Johnson j(xi, lambda, gamma, delta);
+				std::normal_distribution<double> N;
 				auto X = [&]() { return j.x(N(e)); };
 				double P = j.cdf_(x);
 				auto [m, s] = monte([&X, x]() { double x_ = X(); return x_ * 1. * (x_ <= x); }, M);
