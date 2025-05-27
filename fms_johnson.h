@@ -71,6 +71,7 @@ namespace fms {
 #ifdef _DEBUG
 	public:
 #endif
+		inline static Normal N;
 		double xi, lambda, gamma, delta;
 
 		// To std normal.
@@ -148,12 +149,12 @@ namespace fms {
 		// Probability density function.
 		double _pdf(double x, double s = 0) const override
 		{
-			return Normal().pdf(z(x)) * dz_dx(x);
+			return N.pdf(z(x)) * dz_dx(x);
 		}
 		// Cumulative distribution function.
 		double _cdf(double x, double s = 0) const override
 		{
-			return Normal().cdf(z(x));
+			return N.cdf(z(x));
 		}
 		double _cgf(double s) const override
 		{

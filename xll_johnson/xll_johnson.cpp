@@ -56,7 +56,7 @@ AddIn xai_variate_johnson(
 		})
 		.Uncalced()
 	.Category("XLL")
-	.FunctionHelp("Returns a handle to a Johnson distribution.")
+	.FunctionHelp("Returns a handle to a Johnson distribution X = xi + lambda sinh((Z - gamma)/delta) where Z is standard normal.")
 );
 HANDLEX WINAPI xll_variate_johnson(double xi, double lambda, double gamma, double delta)
 {
@@ -180,7 +180,7 @@ AddIn xai_johnson_X(
 	Function(XLL_DOUBLE, "xll_johnson_X", "JOHNSON.X")
 	.Arguments({
 		Arg(XLL_HANDLEX, "h", "is a handle to a Johnson distribution."),
-		Arg(XLL_DOUBLE, "z", "is value of the underlying normal"),
+		Arg(XLL_DOUBLE, "z", "is value of the underlying standard normal"),
 		})
 		.Category("XLL")
 	.FunctionHelp("Returns the Johnson distribution at z.")
