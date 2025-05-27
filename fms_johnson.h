@@ -190,13 +190,15 @@ namespace fms {
 		// Share cumulative distribution E[X 1(X <= x)].
 		double cdf_(double x) const
 		{
-			double m = - gamma / delta;
-			double s = 1 / delta;
-			double Nx = Normal().cdf(z(x));
-			double N_ = std::exp(m) * Normal().cdf(z(x) - s * s * delta);
-			double _N = std::exp(-m) * Normal().cdf(z(x) + s * s * delta);
+			static Normal N;
 
-			return xi * Nx + 0.5 * lambda * std::exp(s * s / 2) * (N_ - _N);
+			double m = - gamma / delta;
+			double s2 = 1 / (delta * delta);
+			double Nx = N.cdf(z(x));
+			double N_ = std::exp(m) * N.cdf(z(x) - s2 * delta);
+			double _N = std::exp(-m) * N.cdf(z(x) + s2 * delta);
+
+			return xi * Nx + 0.5 * lambda * std::exp(s2 / 2) * (N_ - _N);
 		}
 
 	};
